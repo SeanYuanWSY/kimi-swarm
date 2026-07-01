@@ -1,6 +1,6 @@
-# 🚢 kimifleet
+# 🐝 kimi-swarm-pro
 
-**Dual-mode multi-model fleet for Kimi Code CLI.**
+**Dual-mode multi-model swarm/fleet for Kimi Code CLI.**
 
 Two ways to use multiple models at once: a zero-config native swarm for speed, and a full interactive configuration flow for when you want deliberate per-model control.
 
@@ -12,8 +12,8 @@ Two ways to use multiple models at once: a zero-config native swarm for speed, a
 
 | Command | Behavior | Interceptor | When to use |
 |---|---|---|---|
-| `/swarm [task]` | **Native swarm** — passes through to Kimi's built-in Swarm Mode. Auto task-split, auto subagent launch, no model selection, minimal friction. | **NOT intercepted** by fleet-hook.js | Default. Use this 90% of the time. |
-| `/fleet [task]` | **Full interactive config** — 8-step flow: confirm → providers → models → roles → instructions → concurrency → launch → synthesize. Each subagent uses a user-specified model. | **Intercepted** by fleet-hook.js | When you want explicit control over which model plays which role. |
+| `/swarm [task]` | **Native swarm** — passes through to Kimi's built-in Swarm Mode. Auto task-split, auto subagent launch, no model selection, minimal friction. | **NOT intercepted** by kimi-swarm-pro-hook.js | Default. Use this 90% of the time. |
+| `/fleet [task]` | **Full interactive config** — 8-step flow: confirm → providers → models → roles → instructions → concurrency → launch → synthesize. Each subagent uses a user-specified model. | **Intercepted** by kimi-swarm-pro-hook.js | When you want explicit control over which model plays which role. |
 
 Think of it as: `/swarm` = quick raid, `/fleet` = organized fleet formation.
 
@@ -41,8 +41,8 @@ Think of it as: `/swarm` = quick raid, `/fleet` = organized fleet formation.
 > **Safety note:** `install.sh` writes files into `~/.kimi-code` and `~/.agents`. It backs up `config.toml` before editing, but you should still review the script before running it.
 
 ```bash
-git clone https://github.com/SeanYuanWSY/kimifleet.git
-cd kimifleet
+git clone https://github.com/SeanYuanWSY/kimi-swarm-pro.git
+cd kimi-swarm-pro
 ./install.sh
 ```
 
@@ -62,7 +62,7 @@ This passes through to Kimi's built-in Swarm Mode. The agent auto-splits the tas
 /fleet 设计一个登录页面，前端模型负责UI，后端模型负责API，审查模型负责检查
 ```
 
-The fleet-hook.js intercepts `/fleet` and injects a CRITICAL OVERRIDE that forces the agent into the 8-step interactive flow:
+The kimi-swarm-pro-hook.js intercepts `/fleet` and injects a CRITICAL OVERRIDE that forces the agent into the 8-step interactive flow:
 
 1. Confirm the task
 2. Read all models from `config.toml`
@@ -79,26 +79,26 @@ If you prefer to understand each step:
 
 ```bash
 # 1. Create skill directory
-mkdir -p ~/.agents/skills/kimifleet
-cp skills/kimifleet/SKILL.md ~/.agents/skills/kimifleet/SKILL.md
+mkdir -p ~/.agents/skills/kimi-swarm-pro
+cp skills/kimi-swarm-pro/SKILL.md ~/.agents/skills/kimi-swarm-pro/SKILL.md
 
 # 2. Create parent directory and symlink for Kimi Code to load the skill
 mkdir -p ~/.kimi-code/skills-curated
-ln -s ~/.agents/skills/kimifleet ~/.kimi-code/skills-curated/kimifleet
+ln -s ~/.agents/skills/kimi-swarm-pro ~/.kimi-code/skills-curated/kimi-swarm-pro
 
 # 3. Install the hook script
 mkdir -p ~/.kimi-code/scripts
-cp hooks/fleet-hook.js ~/.kimi-code/scripts/fleet-hook.js
-chmod +x ~/.kimi-code/scripts/fleet-hook.js
+cp hooks/kimi-swarm-pro-hook.js ~/.kimi-code/scripts/kimi-swarm-pro-hook.js
+chmod +x ~/.kimi-code/scripts/kimi-swarm-pro-hook.js
 
 # 4. Register the hook in config.toml
 # Add this block to ~/.kimi-code/config.toml.
 # The marker comment is required for uninstall.sh to find and remove it.
 # Replace /home/yourname with the output of `echo $HOME`:
-# kimifleet-hook
+# kimi-swarm-pro-hook
 [[hooks]]
 event = "UserPromptSubmit"
-command = "node $HOME/.kimi-code/scripts/fleet-hook.js"
+command = "node $HOME/.kimi-code/scripts/kimi-swarm-pro-hook.js"
 timeout = 5
 ```
 
@@ -135,7 +135,7 @@ If you type multi-role language (e.g. "前端模型负责X, 后端模型负责Y"
 └──────────────────┬──────────────────────────────┘
                    │
          ┌─────────▼──────────┐
-         │  fleet-hook.js      │  UserPromptSubmit hook
+         │  kimi-swarm-pro-hook.js
          │  checks the prompt  │
          └─────────┬──────────┘
                    │
@@ -181,8 +181,8 @@ If you type multi-role language (e.g. "前端模型负责X, 后端模型负责Y"
 
 | Component | Path | Role |
 |---|---|---|
-| SKILL.md | `~/.agents/skills/kimifleet/SKILL.md` | Knowledge: role prompts, model calling patterns, output format |
-| fleet-hook.js | `~/.kimi-code/scripts/fleet-hook.js` | Interceptor: forces interactive model selection for `/fleet`; passes `/swarm` through untouched |
+| SKILL.md | `~/.agents/skills/kimi-swarm-pro/SKILL.md` | Knowledge: role prompts, model calling patterns, output format |
+| kimi-swarm-pro-hook.js | `~/.kimi-code/scripts/kimi-swarm-pro-hook.js` | Interceptor: forces interactive model selection for `/fleet`; passes `/swarm` through untouched |
 | config.toml | `~/.kimi-code/config.toml` | Registration: `[[hooks]]` entry for UserPromptSubmit |
 
 ## Built-in Roles

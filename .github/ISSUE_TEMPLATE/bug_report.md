@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug in kimifleet
+about: Report a bug in kimi-swarm-pro
 labels: bug
 ---
 
@@ -26,4 +26,4 @@ What actually happened.
 - OS: [e.g. macOS 14, Ubuntu 22.04]
 - Kimi Code version: [e.g. 0.20.2]
 - Node version: [e.g. v20.10.0]
-- kimifleet version: [e.g. 0.2.0]
+- kimi-swarm-pro version: [e.g. 0.3.0]

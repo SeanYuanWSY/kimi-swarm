@@ -3,8 +3,8 @@
 # Copyright (c) 2025 SeanYuanWSY
 set -euo pipefail
 
-# kimifleet installer — idempotent, safe to run multiple times
-# https://github.com/SeanYuanWSY/kimifleet
+# kimi-swarm-pro installer — idempotent, safe to run multiple times
+# https://github.com/SeanYuanWSY/kimi-swarm-pro
 
 KIMI_DIR="$HOME/.kimi-code"
 AGENTS_DIR="$HOME/.agents/skills"
@@ -20,7 +20,7 @@ info()  { echo -e "${GREEN}[✓]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
 error() { echo -e "${RED}[✗]${NC} $*"; }
 
-echo "=== kimifleet installer ==="
+echo "=== kimi-swarm-pro installer ==="
 echo ""
 
 # Step 0: Check Kimi Code is installed
@@ -32,7 +32,7 @@ fi
 
 # Step 0.5: Check runtime dependencies
 if ! command -v node >/dev/null 2>&1; then
-  error "node is required for fleet-hook.js but not found in PATH"
+  error "node is required for kimi-swarm-pro-hook.js but not found in PATH"
   exit 1
 fi
 
@@ -41,18 +41,18 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 # Step 1: Create skill directory
-mkdir -p "$AGENTS_DIR/kimifleet"
+mkdir -p "$AGENTS_DIR/kimi-swarm-pro"
 
 # Step 2: Copy SKILL.md
-if [ -f "$AGENTS_DIR/kimifleet/SKILL.md" ]; then
+if [ -f "$AGENTS_DIR/kimi-swarm-pro/SKILL.md" ]; then
   warn "SKILL.md already exists, overwriting with latest version"
 fi
-cp "$SCRIPT_DIR/skills/kimifleet/SKILL.md" "$AGENTS_DIR/kimifleet/SKILL.md"
-info "Installed SKILL.md → $AGENTS_DIR/kimifleet/SKILL.md"
+cp "$SCRIPT_DIR/skills/kimi-swarm-pro/SKILL.md" "$AGENTS_DIR/kimi-swarm-pro/SKILL.md"
+info "Installed SKILL.md → $AGENTS_DIR/kimi-swarm-pro/SKILL.md"
 
 # Step 3: Create parent directory and symlink in skills-curated
 mkdir -p "$KIMI_DIR/skills-curated"
-SYMLINK="$KIMI_DIR/skills-curated/kimifleet"
+SYMLINK="$KIMI_DIR/skills-curated/kimi-swarm-pro"
 if [ -L "$SYMLINK" ]; then
   warn "Symlink already exists at $SYMLINK, recreating"
   rm "$SYMLINK"
@@ -61,19 +61,19 @@ elif [ -e "$SYMLINK" ]; then
   error "Please remove it manually, then re-run install.sh"
   exit 1
 fi
-ln -sfn "$AGENTS_DIR/kimifleet" "$SYMLINK"
-info "Created symlink → $SYMLINK → $AGENTS_DIR/kimifleet"
+ln -sfn "$AGENTS_DIR/kimi-swarm-pro" "$SYMLINK"
+info "Created symlink → $SYMLINK → $AGENTS_DIR/kimi-swarm-pro"
 
 # Step 4: Create scripts directory if needed
 mkdir -p "$KIMI_DIR/scripts"
 
-# Step 5: Copy fleet-hook.js
-if [ -f "$KIMI_DIR/scripts/fleet-hook.js" ]; then
-  warn "fleet-hook.js already exists, overwriting with latest version"
+# Step 5: Copy kimi-swarm-pro-hook.js
+if [ -f "$KIMI_DIR/scripts/kimi-swarm-pro-hook.js" ]; then
+  warn "kimi-swarm-pro-hook.js already exists, overwriting with latest version"
 fi
-cp "$SCRIPT_DIR/hooks/fleet-hook.js" "$KIMI_DIR/scripts/fleet-hook.js"
-chmod +x "$KIMI_DIR/scripts/fleet-hook.js"
-info "Installed hook → $KIMI_DIR/scripts/fleet-hook.js"
+cp "$SCRIPT_DIR/hooks/kimi-swarm-pro-hook.js" "$KIMI_DIR/scripts/kimi-swarm-pro-hook.js"
+chmod +x "$KIMI_DIR/scripts/kimi-swarm-pro-hook.js"
+info "Installed hook → $KIMI_DIR/scripts/kimi-swarm-pro-hook.js"
 
 # Step 6: Register hook in config.toml (idempotent + backup on mutation only)
 CONFIG="$KIMI_DIR/config.toml"
@@ -83,13 +83,13 @@ if [ ! -f "$CONFIG" ]; then
   chmod 600 "$CONFIG"
 fi
 
-MARKER="# kimifleet-hook"
+MARKER="# kimi-swarm-pro-hook"
 if grep -qF "$MARKER" "$CONFIG" 2>/dev/null; then
   warn "Hook already registered in config.toml, skipping"
 else
   # Backup config only when we are about to modify it
   if [ -s "$CONFIG" ]; then
-    BACKUP="$CONFIG.kimifleet.bak.$(date +%s)"
+    BACKUP="$CONFIG.kimi-swarm-pro.bak.$(date +%s)"
     cp "$CONFIG" "$BACKUP"
     info "Backed up config.toml → $BACKUP"
   fi
@@ -100,7 +100,7 @@ else
     echo "$MARKER"
     echo "[[hooks]]"
     echo 'event = "UserPromptSubmit"'
-    echo "command = \"node '$KIMI_DIR/scripts/fleet-hook.js'\""
+    echo "command = \"node '$KIMI_DIR/scripts/kimi-swarm-pro-hook.js'\""
     echo 'timeout = 5'
   } >> "$CONFIG"
   info "Registered hook in config.toml"

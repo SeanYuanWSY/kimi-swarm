@@ -6,7 +6,7 @@
 /fleet 调研：AI在药物发现领域的最新进展，需要从技术、临床、商业三个维度分析
 ```
 
-> **Dual-mode note:** Use `/fleet` when you want to pick specific models and assign roles interactively. Use `/swarm` if you just want the agent to auto-split the task without model selection.
+> **Dual-mode note:** This example uses `/fleet` for explicit model selection and role assignment. For a zero-config native swarm, use `/swarm` instead — the agent will auto-split the task without asking you to pick models.
 
 ## Interactive Flow
 

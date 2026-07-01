@@ -6,7 +6,7 @@
 /fleet 设计一个登录页面，前端模型负责UI组件和样式，后端模型负责API和数据库设计，审查模型负责检查安全和性能问题
 ```
 
-> **Dual-mode note:** Use `/fleet` when you want to pick specific models and assign roles interactively. Use `/swarm` if you just want the agent to auto-split the task without model selection.
+> **Dual-mode note:** This example uses `/fleet` for explicit model selection and role assignment. For a zero-config native swarm, use `/swarm` instead — the agent will auto-split the task without asking you to pick models.
 
 ## Interactive Flow
 

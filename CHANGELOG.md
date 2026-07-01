@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-07-01
+
+### Changed
+- Renamed project from `kimifleet` to `kimi-swarm-pro`.
+- Renamed hook script from `fleet-hook.js` to `kimi-swarm-pro-hook.js`.
+- Skill name changed from `kimifleet` to `kimi-swarm-pro` to avoid `/fleet` being recognized as a skill command.
+- Updated all paths, symlinks, markers, and backup suffixes.
+
+### Fixed
+- `/fleet` no longer appears as a skill command suggestion because the skill name `kimi-swarm-pro` does not fuzzy-match the `/fleet` command.
+- `/swarm` continues to pass through to Kimi's native Swarm Mode.
+
 ## [0.2.0] - 2025-07-01
 
 ### Changed

@@ -4,14 +4,14 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.2.x   | :white_check_mark: |
+| 0.3.x   | :white_check_mark: |
 
 ## Reporting a Vulnerability
 
-If you discover a security issue in `kimifleet` — especially anything related to the install/uninstall scripts modifying user files or API keys — please report it responsibly:
+If you discover a security issue in `kimi-swarm-pro` — especially anything related to the install/uninstall scripts modifying user files or API keys — please report it responsibly:
 
 1. **Do NOT open a public issue.**
-2. Use [GitHub Security Advisories](https://github.com/SeanYuanWSY/kimifleet/security/advisories/new) — this is the preferred and most reliable channel.
+2. Use [GitHub Security Advisories](https://github.com/SeanYuanWSY/kimi-swarm-pro/security/advisories/new) — this is the preferred and most reliable channel.
 3. Alternatively, open a private GitHub issue mentioning `@SeanYuanWSY` and request a private discussion.
 
 We will acknowledge receipt within 48 hours and aim to provide a fix or assessment within 7 days.

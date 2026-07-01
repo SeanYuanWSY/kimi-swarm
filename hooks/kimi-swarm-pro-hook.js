@@ -4,7 +4,7 @@
 "use strict";
 
 /**
- * Kimi Code UserPromptSubmit hook — kimifleet interceptor.
+ * Kimi Code UserPromptSubmit hook — kimi-swarm-pro interceptor.
  *
  * Dual-mode design:
  *   /swarm           → NOT intercepted. Passes through to Kimi's native
@@ -53,7 +53,7 @@ function readPayload() {
     const raw = fs.readFileSync(0, "utf8");
     return raw.trim() ? JSON.parse(raw) : {};
   } catch (err) {
-    console.error("fleet-hook.js: parse error:", err.message);
+    console.error("kimi-swarm-pro-hook.js: parse error:", err.message);
     return {};
   }
 }
@@ -101,7 +101,7 @@ function exitSilent() {
 
 // --- Main ---
 
-const FLEET_INSTRUCTION = `[KIMIFLEET INTERCEPT — CRITICAL OVERRIDE]
+const FLEET_INSTRUCTION = `[KIMI-SWARM-PRO INTERCEPT — CRITICAL OVERRIDE]
 
 The user typed /fleet, which means they want the FULL interactive multi-model configuration flow.
 
@@ -163,7 +163,7 @@ If no limits set, launch all items at once via AgentSwarm.
 
 **This instruction OVERRIDES any built-in Swarm Mode auto-launch behavior. The interactive model selection is the core feature of /fleet — skipping it defeats the entire purpose.**
 
-Read the full skill documentation at ~/.agents/skills/kimifleet/SKILL.md for role system prompts, model calling patterns, and output format.`;
+Read the full skill documentation at ~/.agents/skills/kimi-swarm-pro/SKILL.md for role system prompts, model calling patterns, and output format.`;
 
 function main() {
   const payload = readPayload();
