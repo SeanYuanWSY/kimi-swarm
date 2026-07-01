@@ -12,8 +12,8 @@ This repository (`kimi-swarm-pro`) installs a skill named `kimi-fleet`. Two ways
 
 | Command | Behavior | Interceptor | When to use |
 |---|---|---|---|
-| `/swarm [task]` | **Native swarm** — passes through to Kimi's built-in Swarm Mode. Auto task-split, auto subagent launch, no model selection, minimal friction. | **NOT intercepted** by kimi-fleet-hook.js | Default. Use this 90% of the time. |
-| `/fleet [task]` | **Full interactive config** — 8-step flow: confirm → providers → models → roles → instructions → concurrency → launch → synthesize. Each subagent uses a user-specified model. | **Handled by the `kimi-fleet` skill** (hook only intercepts multi-role natural language as a fallback) | When you want explicit control over which model plays which role. |
+| `/swarm [task]` | **Native swarm** — passes through to Kimi's built-in Swarm Mode. Auto task-split, auto subagent launch, no model selection, minimal friction. | Not intercepted | Default. Use this 90% of the time. |
+| `/fleet [task]` | **Full interactive config** — 7-step flow: confirm → providers → models → roles → concurrency → launch → synthesize. Each subagent uses a user-specified model. | Loads skill directly; hook intercepts multi-role natural language as a fallback | When you want explicit control over which model plays which role. |
 
 Think of it as: `/swarm` = quick raid, `/fleet` = organized fleet formation.
 
@@ -62,16 +62,15 @@ This passes through to Kimi's built-in Swarm Mode. The agent auto-splits the tas
 /fleet 设计一个登录页面，前端模型负责UI，后端模型负责API，审查模型负责检查
 ```
 
-The `kimi-fleet` skill handles `/fleet` and guides the agent through the 8-step interactive flow:
+The `kimi-fleet` skill handles `/fleet` and guides the agent through the 7-step interactive flow:
 
 1. Confirm the task
-2. Read all models from `config.toml`
-3. Ask which providers to browse (multi-select)
-4. Show models from selected providers (multi-select)
-5. Ask you to assign a role + custom instructions per model
-6. Ask about concurrency limits per provider
-7. Launch parallel subagents, each calling its assigned model
-8. Synthesize all outputs into a final report
+2. Get all available models (from hook-injected `config.toml` parse, or fallback manual read)
+3. Ask which providers to browse, then show models in batches (multi-select)
+4. Ask you to assign a role + custom instructions per model
+5. Ask about concurrency limits per provider
+6. Launch parallel subagents, each calling its assigned model
+7. Synthesize all outputs into a final report
 
 ## Manual Installation
 
@@ -159,10 +158,9 @@ If you type multi-role language (e.g. "前端模型负责X, 后端模型负责Y"
                   ┌────────────▼───────────────┐
                   │   Interactive Selection      │
                   │   1. Confirm task            │
-                  │   2. Pick providers (multi)  │
-                  │   3. Pick models (multi)     │
-                  │   4. Assign roles + instrs   │
-                  │   5. Concurrency limits      │
+                  │   2. Pick providers + models  │
+                  │   3. Assign roles + instrs   │
+                  │   4. Concurrency limits      │
                   └────────────┬───────────────┘
                                │
                   ┌────────────▼───────────────┐

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-07-02
+
+### Fixed
+- **Critical**: `/swarm` and `/fleet` slash commands were hijacked by the hook's multi-role pattern matcher. `/swarm 前端模型负责UI` would get intercepted into the fleet flow because the regex matched. Added an explicit short-circuit guard in `shouldIntercept()` that returns `false` for any prompt starting with `/swarm` or `/fleet`.
+- **High**: Hook had a hardcoded provider list missing `claudecn` and `opencode-go`. Replaced with dynamic `~/.kimi-code/config.toml` parsing via Python `tomllib` — the complete provider/model list is injected at runtime.
+- **High**: SKILL.md lacked explicit batching instructions for `AskUserQuestion` (max 4 options per question × 4 questions per call = 16 models). Added `ceil(N/16)` batching algorithm with a concrete 40-model example showing 3 calls.
+- **High**: SKILL.md Step 3 had no stop conditions — agents would stop showing models after the first batch. Added explicit stop conditions: all batches shown OR user says "够了".
+
+### Changed
+- SKILL.md Step 2 rewritten with "TOP BUG" warning block and detailed batching algorithm.
+- SKILL.md provider examples updated: `kimi-code` → `managed:kimi-code`, added `claudecn`.
+- Hook instruction Step 3 synced with SKILL.md batching formula.
+- LICENSE copyright year corrected from 2025 to 2026.
+- CI `action-shellcheck@master` pinned to `@2.0.0` to eliminate supply-chain risk.
+
 ## [0.4.0] - 2025-07-01
 
 ### Changed

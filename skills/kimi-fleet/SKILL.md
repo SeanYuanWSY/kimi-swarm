@@ -11,8 +11,8 @@ description: "Dual-mode multi-model swarm/fleet for Kimi CLI. /swarm = native li
 
 | Command | Behavior | Interceptor | When to use |
 |---|---|---|---|
-| `/swarm [task]` | **Native swarm** — passes through to Kimi's built-in Swarm Mode. Auto task-split, auto subagent launch, no model selection, minimal friction. | **NOT intercepted** by kimi-fleet-hook.js | Default. Use this 90% of the time. |
-| `/fleet [task]` | **Full interactive config** — 8-step flow: confirm → providers → models → roles → instructions → concurrency → launch → synthesize. Each subagent uses a user-specified model. | **Handled by the `kimi-fleet` skill** (hook intercepts multi-role natural language as a fallback) | When you want explicit control over which model plays which role. |
+| `/swarm [task]` | **Native swarm** — passes through to Kimi's built-in Swarm Mode. Auto task-split, auto subagent launch, no model selection, minimal friction. | Not intercepted | Default. Use this 90% of the time. |
+| `/fleet [task]` | **Full interactive config** — 8-step flow: confirm → providers → models → roles → instructions → concurrency → launch → synthesize. Each subagent uses a user-specified model. | Loads skill directly; `kimi-fleet-hook.js` also intercepts natural-language multi-role prompts as a fallback | When you want explicit control over which model plays which role. |
 
 ### Why two modes?
 
@@ -30,7 +30,7 @@ Think of it as: `/swarm` = quick raid, `/fleet` = organized fleet formation.
 /swarm [task description]
 ```
 
-**What happens**: The kimi-fleet-hook.js does **not** intercept this command. Kimi's native Swarm Mode activates normally — the agent reads the task, decomposes it into subtasks, launches `AgentSwarm`, and synthesizes results. No model selection, no role assignment, no interactive Q&A.
+**What happens**: This command is not intercepted by any hook. Kimi's native Swarm Mode activates normally — the agent reads the task, decomposes it into subtasks, launches `AgentSwarm`, and synthesizes results. No model selection, no role assignment, no interactive Q&A.
 
 **When to use**:
 - You want speed and simplicity.
@@ -52,7 +52,7 @@ In those cases, use `/fleet`.
 /fleet [task description]
 ```
 
-**What happens**: The `kimi-fleet` skill handles this command and loads the full interactive configuration flow. The kimi-fleet-hook.js may also intercept multi-role natural language prompts as a fallback and inject a CRITICAL OVERRIDE instruction that forces the agent into the 8-step interactive flow before launching any subagents.
+**What happens**: The skill is loaded directly, providing the 8-step interactive flow below. Additionally, `kimi-fleet-hook.js` intercepts natural-language multi-role prompts (e.g. "前端模型负责X") as a fallback to inject a CRITICAL OVERRIDE instruction that forces the agent into the same interactive flow. The hook pre-parses `~/.kimi-code/config.toml` via Python tomllib and injects the complete provider/model list so the agent doesn't have to parse TOML itself.
 
 ### CRITICAL: Always Ask Before Launching
 
@@ -68,6 +68,12 @@ Even if the user's prompt already specifies roles like "前端模型负责X, 后
 - Only THEN launch `AgentSwarm`
 
 **Do NOT skip the interactive selection step.** The entire point of `/fleet` is that model-role mapping is designed fresh for every task.
+
+### CRITICAL: Show ALL Models — Never Truncate to 4
+
+`AskUserQuestion` allows **max 4 options per question** and **max 4 questions per call** (16 options per call). Many users have 40-60+ models across providers. The #1 fleet bug is the agent showing only 4 models and stopping, as if that were the entire list.
+
+**Hard rule**: Before calling `AskUserQuestion` for model selection, count the total models `N` in the selected provider(s). You need `ceil(N / 16)` calls. Make ALL of them. See **Step 2 → The batching algorithm** for the exact procedure. If you catch yourself showing only the first 4 models and moving on, STOP — you are skipping the rest of the list.
 
 ### When to Use
 
@@ -92,9 +98,13 @@ Restate the task in one sentence (strip the `/fleet` prefix) and ask:
 
 Use `AskUserQuestion` with a single yes/no-style question (or continue with default).
 
-#### Step 2: Read ALL Available Models
+#### Step 2: Get ALL Available Models
 
-Read `~/.kimi-code/config.toml` and parse **every** `[models."..."]` entry — do NOT filter. For each model, capture:
+> ⚠️ **TOP BUG — READ THIS TWICE**: The #1 reported bug in `/fleet` is the agent showing only 4 models (or only the first batch) and stopping, as if `AskUserQuestion` could only hold 4 options total. **`AskUserQuestion` supports UP TO 4 QUESTIONS per call, and EACH question has 4 options — that is 16 models per single call.** When there are more than 16 models, you make MULTIPLE `AskUserQuestion` calls. Never truncate the model list. Never stop after one batch. The user must see EVERY model in every selected provider before picking.
+
+**If the hook injected a COMPLETE model list** (you will see a section titled `COMPLETE Model List (injected by hook)`), use that list directly — do NOT re-read `config.toml`.
+
+**If the hook did NOT inject a model list** (fallback), read `~/.kimi-code/config.toml` and parse **every** `[models."..."]` entry yourself — do NOT filter. For each model, capture:
 
 - `model_id` (the section name without `[models."` and `"]`)
 - `display_name`
@@ -103,29 +113,68 @@ Read `~/.kimi-code/config.toml` and parse **every** `[models."..."]` entry — d
 
 **List ALL models**, including those without `tool_use`. The user may want to use a vision-only or thinking-only model for a specific role. Do not pre-filter.
 
-Since `AskUserQuestion` allows at most 4 options per question and the user may have 60+ models, use this multi-stage approach:
+##### The batching algorithm (follow this EXACTLY)
 
-1. **First ask which provider(s) to browse** — Use `AskUserQuestion` with `multi_select=true`, one option per provider group. The user CAN select multiple providers at once (e.g. both `ollama-cloud` and `kimi-code`).
-   - Available providers: `ollama-cloud`, `kimi-code`, `deepseek`, `zai-coding-plan`, `opencode-go`
-   - Since max 4 options per question, split into two questions if there are 5+ providers.
-   - The system auto-adds an "Other" option for custom input.
+`AskUserQuestion` hard constraints:
+- **Max 4 options per question** (the system auto-adds "Other", so you can fill all 4 slots yourself).
+- **Max 4 questions per call** → one call can show **up to 16 options** (4 questions × 4 options).
+- **No max on number of calls** — you can call `AskUserQuestion` as many times as needed.
 
-2. **Then list models from ALL selected provider(s) combined** — Pool models from every selected provider into one list. Split into batches of 4 per `AskUserQuestion` question. Use multiple questions in a single `AskUserQuestion` call (up to 4 questions, each with 4 options = 16 models shown at once). Label each option as `display_name (provider)` and use the description field to show `model_id` and `capabilities`.
+Multi-stage flow:
 
-3. **If the user selects "Other"**, let them type a custom model_id manually.
+1. **Stage 1 — Ask which provider(s) to browse.**
+   - Use `AskUserQuestion` with `multi_select=true`, one option per provider group.
+   - The user CAN select multiple providers at once (e.g. both `ollama-cloud` and `kimi-code`).
+   - Use the providers from the injected model list (or from your config.toml parse). **Do NOT hardcode provider names** — the list is dynamically generated from the user's actual config.
+   - If there are **5+ providers**, one question (4 slots) is not enough. Split into two questions in the same call: question 1 = providers 1-4, question 2 = providers 5-N. Both questions use `multi_select=true`.
+
+2. **Stage 2 — List models from ALL selected provider(s) combined.**
+   - Pool every model from every selected provider into one flat list.
+   - **Count the total.** Call it `N`.
+   - **Compute number of `AskUserQuestion` calls needed**: `ceil(N / 16)`. If N=40, that is 3 calls. If N=60, that is 4 calls. If N=5, that is 1 call.
+   - **Within each call**, pack 4 questions × 4 options = 16 models. Label each option `display_name (provider)`, use the description field for `model_id` + `capabilities`.
+   - **Use `multi_select=true` on every model question** so the user can pick several at once.
+   - **Tell the user in the question text which batch this is**: e.g. "模型选择 (第 1/3 批，共 40 个模型 — 选完这批还有更多)". On the last batch, say "(第 3/3 批，最后一批)".
+   - **Between calls**, briefly note how many models the user already selected so they know earlier picks are not lost.
+
+3. **If the user selects "Other"** on any question, let them type a custom `model_id` manually.
+
+##### Concrete example — 40 models in one provider
+
+```
+N = 40 → ceil(40/16) = 3 AskUserQuestion calls
+
+Call 1: questions 1-4, each with 4 models → models 1-16
+  Question text: "模型选择 (第 1/3 批，共 40 个模型 — 选完这批还有更多)"
+  multi_select=true on every question
+
+Call 2: questions 1-4, each with 4 models → models 17-32
+  Question text: "模型选择 (第 2/3 批，共 40 个模型 — 选完这批还有更多)"
+
+Call 3: questions 1-2, each with 4 models → models 33-40
+  Question text: "模型选择 (第 3/3 批，最后一批)"
+```
+
+**DO NOT stop after Call 1.** The most common bug is showing 4 models and acting as if the list is done. If there are 40+ models, that means 3+ calls — do all of them.
 
 #### Step 3: Let the User Pick Models
 
-Use `AskUserQuestion` with `multi_select` to let the user choose 1–N models from the batched lists. Show `display_name (provider)` as labels, with `model_id` and `capabilities` in the description.
+This step is the continuation of the Stage 2 batching from Step 2 — the user selects models **while** you are showing them batches, not after.
 
-If the user wants more models than shown in one batch, repeat the question with the next batch until all desired models are selected.
+Use `AskUserQuestion` with `multi_select=true` on every question so the user can choose 1–N models from each batch. Show `display_name (provider)` as labels, with `model_id` and `capabilities` in the description.
 
-**Example flow:**
-1. User selects providers: `ollama-cloud` + `kimi-code` (multi_select)
-2. System pools all models from both providers
-3. System shows batch 1: 4 ollama-cloud models (question 1) + 4 kimi-code models (question 2) — up to 16 models per AskUserQuestion call
-4. User multi-selects e.g. `ollama-cloud/glm-5.2` + `kimi-code/kimi-for-coding`
-5. If user wants more, show next batch
+**After each batch call**, check: did the user pick all the models they want, or do they still want to see more? If there are remaining batches, continue showing them. Do not assume "the user did not select anything from this batch, so they are done" — they may be waiting for a model in a later batch. Only stop when:
+- All batches have been shown, OR
+- The user explicitly says "that's enough" / "继续" / "不用再看了".
+
+**Example flow (40 models):**
+1. User selects providers: `ollama-cloud` + `kimi-code` (multi_select) → 40 models total
+2. Call 1: show models 1-16 across 4 questions (multi_select on each)
+3. User multi-selects `glm-5.2` + `kimi-k2.7-code` from this batch
+4. Call 2: show models 17-32 — "模型选择 (第 2/3 批)"
+5. User multi-selects `deepseek-v4-pro`
+6. Call 3: show models 33-40 — "模型选择 (第 3/3 批，最后一批)"
+7. User says "够了" → stop, proceed to Step 4 with the 3 selected models
 
 #### Step 4: Assign Roles AND Custom Instructions Per Model
 
@@ -181,11 +230,11 @@ Options:
 - "3"
 - The user can select "Other" to type a custom number.
 
-**Record the limits** as a mapping:
+**Record the limits** as a mapping (example — your actual providers come from Step 2):
 ```
 ollama-cloud → 3
 deepseek → 5  (or unlimited)
-kimi-code → unlimited
+managed:kimi-code → unlimited
 ```
 
 #### Step 6: Build AgentSwarm Items (with batching if needed)
@@ -331,7 +380,7 @@ perl -e 'alarm 120; exec "ollama","run",$ENV{MODEL},$ENV{PROMPT}' 2>&1 | perl -p
 # gtimeout 120 ollama run "$MODEL" "$PROMPT" 2>&1 | perl -pe 's/\e\[[0-9;?]*[a-zA-Z]//g' | tr -d '\r'
 ```
 
-### For API-based providers (deepseek / zai-coding-plan / opencode-go)
+### For API-based providers (deepseek, zai-coding-plan, opencode-go, claudecn, etc.)
 
 **Do NOT pass API keys on the command line** — they show up in `ps`, process logs, and shell history. Use a temporary header file and a Python-generated JSON payload.
 
@@ -382,7 +431,7 @@ curl -s -X POST "https://api.deepseek.com/chat/completions" \
 rm -f "$HEADER_FILE" "$PAYLOAD_FILE"
 ```
 
-Adapt the URL and provider section (`providers.deepseek`, `providers.zai-coding-plan`, `providers.opencode-go`) for the other two providers.
+Adapt the URL and provider section (e.g. `providers.deepseek`, `providers.zai-coding-plan`, `providers.opencode-go`, `providers.claudecn`) for any other API-based provider found in your config.toml. Use the provider's `base_url` and `api_key` from the config.
 
 ### For kimi-code models
 
