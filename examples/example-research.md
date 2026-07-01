@@ -3,8 +3,10 @@
 ## Task
 
 ```markdown
-/swarm 调研：AI在药物发现领域的最新进展，需要从技术、临床、商业三个维度分析
+/fleet 调研：AI在药物发现领域的最新进展，需要从技术、临床、商业三个维度分析
 ```
+
+> **Dual-mode note:** Use `/fleet` when you want to pick specific models and assign roles interactively. Use `/swarm` if you just want the agent to auto-split the task without model selection.
 
 ## Interactive Flow
 
@@ -33,7 +35,7 @@ minimax-m3 → research（商业维度）
 kimi-for-coding → synthesize（综合）
 ```
 
-### Step 5: Swarm launched
+### Step 5: Fleet launched
 
 Four subagents run in parallel:
 - **deepseek-v4-pro** → searches for latest AI drug discovery papers and models

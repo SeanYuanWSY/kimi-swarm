@@ -1,20 +1,33 @@
-# 🐝 kimi-swarm
+# 🚢 kimifleet
 
-**Interactive multi-model swarm for Kimi Code CLI.**
+**Dual-mode multi-model fleet for Kimi Code CLI.**
 
-Every time you start a task, pick which models to use and what role each plays — no preset mappings, fully flexible per task.
+Two ways to use multiple models at once: a zero-config native swarm for speed, and a full interactive configuration flow for when you want deliberate per-model control.
 
-> 每次任务开始时，交互式选择模型和角色，灵活适配模型迭代和工作流变化。
+> 双模式多模型协作：`/swarm` 走原生轻量蜂群，`/fleet` 走完整交互式配置流程。
+
+---
+
+## Two Modes
+
+| Command | Behavior | Interceptor | When to use |
+|---|---|---|---|
+| `/swarm [task]` | **Native swarm** — passes through to Kimi's built-in Swarm Mode. Auto task-split, auto subagent launch, no model selection, minimal friction. | **NOT intercepted** by fleet-hook.js | Default. Use this 90% of the time. |
+| `/fleet [task]` | **Full interactive config** — 8-step flow: confirm → providers → models → roles → instructions → concurrency → launch → synthesize. Each subagent uses a user-specified model. | **Intercepted** by fleet-hook.js | When you want explicit control over which model plays which role. |
+
+Think of it as: `/swarm` = quick raid, `/fleet` = organized fleet formation.
 
 ---
 
 ## Features
 
-- **Interactive model selection** — Pick from ALL models in your `config.toml`, across multiple providers (Ollama Cloud, Kimi, DeepSeek, Z.ai, OpenCode)
+- **Two modes** — `/swarm` for zero-config native swarm, `/fleet` for full interactive multi-model configuration
+- **Interactive model selection** (in `/fleet` mode) — Pick from ALL models in your `config.toml`, across multiple providers (Ollama Cloud, Kimi, DeepSeek, Z.ai, OpenCode)
 - **Per-task role assignment** — 6 built-in roles (frontend, backend, review, research, cheap-task, synthesize) + custom
-- **Multi-provider support** — Select models from different providers in the same swarm
+- **Multi-provider support** — Select models from different providers in the same fleet
 - **Fresh design every time** — No persistent role mapping; adapt as models update
-- **Hook-based interception** — Overrides Kimi Code's built-in Swarm Mode auto-launch
+- **Concurrency control** — Set per-provider concurrency limits to avoid queue waste
+- **Hook-based interception** — `/fleet` overrides Kimi Code's built-in auto-launch; `/swarm` passes through untouched
 
 ## Requirements
 
@@ -28,24 +41,37 @@ Every time you start a task, pick which models to use and what role each plays �
 > **Safety note:** `install.sh` writes files into `~/.kimi-code` and `~/.agents`. It backs up `config.toml` before editing, but you should still review the script before running it.
 
 ```bash
-git clone https://github.com/SeanYuanWSY/kimi-swarm.git
-cd kimi-swarm
+git clone https://github.com/SeanYuanWSY/kimifleet.git
+cd kimifleet
 ./install.sh
 ```
 
-Then start a new Kimi Code session and type:
+Then start a new Kimi Code session. Use either mode:
+
+### `/swarm` — native lightweight swarm (no config)
 
 ```
-/swarm 设计一个登录页面，前端模型负责UI，后端模型负责API，审查模型负责检查
+/swarm 设计一个登录页面
 ```
 
-The agent will:
+This passes through to Kimi's built-in Swarm Mode. The agent auto-splits the task, launches subagents, and synthesizes — no model selection, no questions asked.
+
+### `/fleet` — full interactive multi-model configuration
+
+```
+/fleet 设计一个登录页面，前端模型负责UI，后端模型负责API，审查模型负责检查
+```
+
+The fleet-hook.js intercepts `/fleet` and injects a CRITICAL OVERRIDE that forces the agent into the 8-step interactive flow:
+
 1. Confirm the task
-2. Ask which providers to browse (multi-select)
-3. Show models from selected providers (multi-select)
-4. Ask you to assign a role + custom instructions per model
-5. Launch parallel subagents, each calling its assigned model
-6. Synthesize all outputs into a final report
+2. Read all models from `config.toml`
+3. Ask which providers to browse (multi-select)
+4. Show models from selected providers (multi-select)
+5. Ask you to assign a role + custom instructions per model
+6. Ask about concurrency limits per provider
+7. Launch parallel subagents, each calling its assigned model
+8. Synthesize all outputs into a final report
 
 ## Manual Installation
 
@@ -53,92 +79,110 @@ If you prefer to understand each step:
 
 ```bash
 # 1. Create skill directory
-mkdir -p ~/.agents/skills/kimi-swarm
-cp skills/kimi-swarm/SKILL.md ~/.agents/skills/kimi-swarm/SKILL.md
+mkdir -p ~/.agents/skills/kimifleet
+cp skills/kimifleet/SKILL.md ~/.agents/skills/kimifleet/SKILL.md
 
 # 2. Create parent directory and symlink for Kimi Code to load the skill
 mkdir -p ~/.kimi-code/skills-curated
-ln -s ~/.agents/skills/kimi-swarm ~/.kimi-code/skills-curated/kimi-swarm
+ln -s ~/.agents/skills/kimifleet ~/.kimi-code/skills-curated/kimifleet
 
 # 3. Install the hook script
 mkdir -p ~/.kimi-code/scripts
-cp hooks/swarm-hook.js ~/.kimi-code/scripts/swarm-hook.js
-chmod +x ~/.kimi-code/scripts/swarm-hook.js
+cp hooks/fleet-hook.js ~/.kimi-code/scripts/fleet-hook.js
+chmod +x ~/.kimi-code/scripts/fleet-hook.js
 
 # 4. Register the hook in config.toml
 # Add this block to ~/.kimi-code/config.toml.
 # The marker comment is required for uninstall.sh to find and remove it.
 # Replace /home/yourname with the output of `echo $HOME`:
-# kimi-swarm-hook
+# kimifleet-hook
 [[hooks]]
 event = "UserPromptSubmit"
-command = "node $HOME/.kimi-code/scripts/swarm-hook.js"
+command = "node $HOME/.kimi-code/scripts/fleet-hook.js"
 timeout = 5
 ```
 
 ## Usage
 
-### Basic
+### `/swarm` — native mode
 
 ```
 /swarm [task description]
 ```
 
-### With role hints
+The hook does **not** intercept this. Kimi's native Swarm Mode handles everything automatically.
+
+### `/fleet` — interactive mode
 
 ```
-/swarm 设计一个企业级后台系统，前端模型负责UI组件，后端模型负责API设计，安全模型负责审查JWT
+/fleet [task description]
 ```
 
-### Without /swarm prefix (Swarm Mode auto-detected)
+### With role hints (triggers `/fleet` flow)
 
-If Kimi Code's built-in Swarm Mode is active, you can just type a task with multi-role language and the hook will intercept it.
+```
+/fleet 设计一个企业级后台系统，前端模型负责UI组件，后端模型负责API设计，安全模型负责审查JWT
+```
+
+If you type multi-role language (e.g. "前端模型负责X, 后端模型负责Y") even without the `/fleet` prefix, the hook will intercept it and start the interactive flow.
 
 ## How It Works
 
 ```
 ┌─────────────────────────────────────────────────┐
 │                 User Input                        │
-│              /swarm [task]                        │
+│         /swarm [task]  or  /fleet [task]         │
 └──────────────────┬──────────────────────────────┘
                    │
          ┌─────────▼──────────┐
-         │  swarm-hook.js     │  UserPromptSubmit hook
-         │  intercepts prompt │  detects /swarm or multi-role
-         └─────────┬──────────┘
-                   │ injects CRITICAL OVERRIDE
-         ┌─────────▼──────────┐
-         │  Agent reads       │
-         │  SKILL.md          │  Skill loaded via symlink
-         │  + hook instruction│
+         │  fleet-hook.js      │  UserPromptSubmit hook
+         │  checks the prompt  │
          └─────────┬──────────┘
                    │
-    ┌──────────────▼───────────────┐
-    │   Interactive Selection       │
-    │   1. Confirm task             │
-    │   2. Pick providers (multi)   │
-    │   3. Pick models (multi)      │
-    │   4. Assign roles + instrs    │
-    └──────────────┬───────────────┘
-                   │
-    ┌──────────────▼───────────────┐
-    │   AgentSwarm launched         │
-    │   Each subagent calls its     │
-    │   assigned model via Bash     │
-    └──────────────┬───────────────┘
-                   │
-    ┌──────────────▼───────────────┐
-    │   Parent synthesizes          │
-    │   all outputs → final report  │
-    └──────────────────────────────┘
+          ┌────────┴─────────┐
+          │                  │
+     /swarm path        /fleet path
+  (NOT intercepted)    (intercepted)
+          │                  │
+          ▼                  ▼
+  ┌──────────────┐  ┌────────────────────┐
+  │  Native Kimi  │  │  Injects CRITICAL   │
+  │  Swarm Mode   │  │  OVERRIDE instruction│
+  │  auto-splits  │  └─────────┬──────────┘
+  │  & launches   │            │
+  └──────────────┘  ┌──────────▼──────────┐
+                    │  Agent reads         │
+                    │  SKILL.md            │  Skill loaded via symlink
+                    │  + hook instruction  │
+                    └──────────┬──────────┘
+                               │
+                  ┌────────────▼───────────────┐
+                  │   Interactive Selection      │
+                  │   1. Confirm task            │
+                  │   2. Pick providers (multi)  │
+                  │   3. Pick models (multi)     │
+                  │   4. Assign roles + instrs   │
+                  │   5. Concurrency limits      │
+                  └────────────┬───────────────┘
+                               │
+                  ┌────────────▼───────────────┐
+                  │   AgentSwarm launched        │
+                  │   Each subagent calls its    │
+                  │   assigned model via Bash   │
+                  └────────────┬───────────────┘
+                               │
+                  ┌────────────▼───────────────┐
+                  │   Parent synthesizes         │
+                  │   all outputs → final report │
+                  └──────────────────────────────┘
 ```
 
 **Three components:**
 
 | Component | Path | Role |
 |---|---|---|
-| SKILL.md | `~/.agents/skills/kimi-swarm/SKILL.md` | Knowledge: role prompts, model calling patterns, output format |
-| swarm-hook.js | `~/.kimi-code/scripts/swarm-hook.js` | Interceptor: forces interactive model selection before launch |
+| SKILL.md | `~/.agents/skills/kimifleet/SKILL.md` | Knowledge: role prompts, model calling patterns, output format |
+| fleet-hook.js | `~/.kimi-code/scripts/fleet-hook.js` | Interceptor: forces interactive model selection for `/fleet`; passes `/swarm` through untouched |
 | config.toml | `~/.kimi-code/config.toml` | Registration: `[[hooks]]` entry for UserPromptSubmit |
 
 ## Built-in Roles
@@ -157,7 +201,7 @@ If Kimi Code's built-in Swarm Mode is active, you can just type a task with mult
 
 See [`examples/`](./examples) for complete walkthroughs:
 - [Frontend + Backend + Review](./examples/example-frontend-backend.md) — Three-model collaboration for a login page
-- [Multi-dimensional Research](./examples/example-research.md) — Four-model research swarm
+- [Multi-dimensional Research](./examples/example-research.md) — Four-model research fleet
 
 ## Uninstall
 

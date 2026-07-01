@@ -20,7 +20,7 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening a private GitHub issue mentioning `@SeanYuanWSY` or via [GitHub Security Advisories](https://github.com/SeanYuanWSY/kimi-swarm/security/advisories/new). All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening a private GitHub issue mentioning `@SeanYuanWSY` or via [GitHub Security Advisories](https://github.com/SeanYuanWSY/kimifleet/security/advisories/new). All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 

@@ -4,16 +4,18 @@
 "use strict";
 
 /**
- * Kimi Code UserPromptSubmit hook — kimi-swarm interceptor.
+ * Kimi Code UserPromptSubmit hook — kimifleet interceptor.
  *
- * When the user's prompt contains "/swarm" OR starts with a task description
- * that mentions multiple model roles (e.g. "前端模型负责X, 后端模型负责Y"),
- * this hook injects a CRITICAL instruction that forces the agent to:
- *   1. Stop and use AskUserQuestion to let the user select models from config.toml
- *   2. Let the user assign roles per model
- *   3. Only then launch AgentSwarm
+ * Dual-mode design:
+ *   /swarm           → NOT intercepted. Passes through to Kimi's native
+ *                     Swarm Mode (lightweight, auto task-split, no model
+ *                     selection). The agent just does its normal swarm thing.
+ *   /fleet           → Intercepts and injects the full 8-step interactive
+ *                     configuration flow (provider select → model select →
+ *                     role assign → custom instructions → concurrency → launch).
  *
- * This overrides the built-in Swarm Mode's auto-launch behavior.
+ * This hook ONLY intercepts /fleet. /swarm is left untouched so the
+ * user gets native Kimi swarm behavior by default.
  * Registered in ~/.kimi-code/config.toml under [[hooks]].
  */
 
@@ -21,9 +23,9 @@ const fs = require("fs");
 
 // --- Trigger detection ---
 
-/** Detect /swarm command */
-function isSwarmCommand(prompt) {
-  return /^\s*\/swarm\b/iu.test(prompt);
+/** Detect /fleet command (the full interactive configuration mode) */
+function isFleetCommand(prompt) {
+  return /^\s*\/fleet\b/iu.test(prompt);
 }
 
 /** Detect multi-role language patterns that suggest the user wants multi-model collaboration */
@@ -39,9 +41,9 @@ function isMultiRolePrompt(prompt) {
   return cjkRoles.test(prompt) || cjkAssign.test(prompt) || engRoles.test(prompt) || engAssign.test(prompt);
 }
 
-/** Detect if swarm mode system instruction is present (heuristic: the prompt mentions roles AND multiple perspectives) */
+/** Detect if the user explicitly wants the full interactive configuration flow */
 function shouldIntercept(prompt) {
-  return isSwarmCommand(prompt) || isMultiRolePrompt(prompt);
+  return isFleetCommand(prompt) || isMultiRolePrompt(prompt);
 }
 
 // --- Payload reading (same pattern as supermemory-recall.js) ---
@@ -51,7 +53,7 @@ function readPayload() {
     const raw = fs.readFileSync(0, "utf8");
     return raw.trim() ? JSON.parse(raw) : {};
   } catch (err) {
-    console.error("swarm-hook.js: parse error:", err.message);
+    console.error("fleet-hook.js: parse error:", err.message);
     return {};
   }
 }
@@ -99,16 +101,16 @@ function exitSilent() {
 
 // --- Main ---
 
-const SWARM_INSTRUCTION = `[KIMI-SWARM INTERCEPT — CRITICAL OVERRIDE]
+const FLEET_INSTRUCTION = `[KIMIFLEET INTERCEPT — CRITICAL OVERRIDE]
 
-The user wants to use the kimi-swarm skill for multi-model collaboration.
+The user typed /fleet, which means they want the FULL interactive multi-model configuration flow.
 
 **You MUST NOT auto-launch AgentSwarm or start any subagents yet.**
 
 **Before doing ANY work, you MUST follow these steps IN ORDER:**
 
 ### Step 1: Confirm the task
-Restate the task in one sentence. Ask the user via AskUserQuestion:
+Restate the task in one sentence (strip the /fleet prefix). Ask the user via AskUserQuestion:
 "我要为以下任务启动多模型协作：[task]。是否继续？"
 Options: "继续，让我选模型" / "不用多模型，直接做"
 
@@ -159,9 +161,9 @@ If no limits set, launch all items at once via AgentSwarm.
 
 ### Step 8: Synthesize all subagent outputs into a final report.
 
-**This instruction OVERRIDES any built-in Swarm Mode auto-launch behavior. The interactive model selection is the core feature of kimi-swarm — skipping it defeats the entire purpose.**
+**This instruction OVERRIDES any built-in Swarm Mode auto-launch behavior. The interactive model selection is the core feature of /fleet — skipping it defeats the entire purpose.**
 
-Read the full skill documentation at ~/.agents/skills/kimi-swarm/SKILL.md for role system prompts, model calling patterns, and output format.`;
+Read the full skill documentation at ~/.agents/skills/kimifleet/SKILL.md for role system prompts, model calling patterns, and output format.`;
 
 function main() {
   const payload = readPayload();
@@ -172,7 +174,7 @@ function main() {
   }
 
   if (shouldIntercept(prompt)) {
-    exitWithContext(SWARM_INSTRUCTION);
+    exitWithContext(FLEET_INSTRUCTION);
   }
 
   exitSilent();

@@ -1,17 +1,60 @@
 ---
-name: "kimi-swarm"
-description: "Interactive multi-model swarm for Kimi CLI. When the user types /swarm OR when Swarm Mode is activated and the task involves multiple perspectives, MUST first ask the user to select models and assign roles before launching any subagents. Never auto-launch without interactive model selection. Roles are designed fresh every time."
+name: "kimifleet"
+description: "Dual-mode multi-model fleet for Kimi CLI. /swarm = native lightweight swarm (auto task-split, no config). /fleet = full interactive multi-model configuration (provider select, model select, role assign, concurrency, launch). The hook only intercepts /fleet; /swarm passes through to Kimi's native Swarm Mode."
 ---
 
-# Kimi Swarm — Multi-Model Interactive Collaboration
+# KimiFleet — Dual-Mode Multi-Model Collaboration
 
 > **Requirements**: Kimi Code CLI 0.20+ with at least 2 models configured in `~/.kimi-code/config.toml`.
 
-Use this skill when:
-1. The user invokes `/swarm [task description]`, OR
-2. Swarm Mode is activated (system message says "Swarm activated" or "agent swarm" mode) AND the task involves multiple perspectives (frontend, backend, review, research, etc.)
+## Two Modes
 
-## CRITICAL: Always Ask Before Launching
+| Command | Behavior | Interceptor | When to use |
+|---|---|---|---|
+| `/swarm [task]` | **Native swarm** — passes through to Kimi's built-in Swarm Mode. Auto task-split, auto subagent launch, no model selection, minimal friction. | **NOT intercepted** by fleet-hook.js | Default. Use this 90% of the time. |
+| `/fleet [task]` | **Full interactive config** — 8-step flow: confirm → providers → models → roles → instructions → concurrency → launch → synthesize. Each subagent uses a user-specified model. | **Intercepted** by fleet-hook.js | When you want explicit control over which model plays which role. |
+
+### Why two modes?
+
+`/swarm` keeps the original Kimi swarm experience: fast, automatic, lightweight. You just type the command and the agent handles task decomposition and subagent orchestration on its own — same as native Swarm Mode, no extra questions.
+
+`/fleet` adds the multi-model dimension: you pick specific models from `config.toml`, assign each a role, optionally set concurrency limits, and each subagent calls its assigned model through Bash. This is the full interactive configuration flow for when you want deliberate, per-model control.
+
+Think of it as: `/swarm` = quick raid, `/fleet` = organized fleet formation.
+
+---
+
+## Mode 1: `/swarm` — Native Lightweight Swarm
+
+```
+/swarm [task description]
+```
+
+**What happens**: The fleet-hook.js does **not** intercept this command. Kimi's native Swarm Mode activates normally — the agent reads the task, decomposes it into subtasks, launches `AgentSwarm`, and synthesizes results. No model selection, no role assignment, no interactive Q&A.
+
+**When to use**:
+- You want speed and simplicity.
+- You trust the agent to pick subagent configuration.
+- The task doesn't require specific models for specific perspectives.
+
+**When NOT to use**:
+- You need specific models for specific roles (e.g., "GLM-5.2 for frontend, DeepSeek for backend").
+- You want to control concurrency limits per provider.
+- You want to assign custom instructions to each model.
+
+In those cases, use `/fleet`.
+
+---
+
+## Mode 2: `/fleet` — Full Interactive Multi-Model Configuration
+
+```
+/fleet [task description]
+```
+
+**What happens**: The fleet-hook.js intercepts this command and injects a CRITICAL OVERRIDE instruction that forces the agent into the 8-step interactive flow before launching any subagents.
+
+### CRITICAL: Always Ask Before Launching
 
 **Never auto-launch AgentSwarm without first asking the user to:**
 1. Confirm the task
@@ -24,50 +67,32 @@ Even if the user's prompt already specifies roles like "前端模型负责X, 后
 - Use `AskUserQuestion` to let the user confirm or adjust role assignments
 - Only THEN launch `AgentSwarm`
 
-**Do NOT skip the interactive selection step.** The entire point of this skill is that model-role mapping is designed fresh for every task. Auto-launching defeats this purpose.
+**Do NOT skip the interactive selection step.** The entire point of `/fleet` is that model-role mapping is designed fresh for every task.
 
-## When to Use
+### When to Use
 
 - The task can be split into parallel perspectives (frontend, backend, review, research, cheap-task, etc.).
 - The user wants to compare or combine outputs from multiple models.
 - The user wants to delegate simpler work to cheaper models and harder work to stronger models.
-- Swarm Mode is activated and the task is non-trivial.
 
-## When NOT to Use (skip interaction and proceed normally)
+### When NOT to Use (skip interaction and tell the user to use /swarm instead)
 
 - The task is trivial and can be done in one tool call.
 - The user has already specified a single model and a narrow task.
 - The user says "just do it" or explicitly asks to skip model selection.
 - Network/API access is unavailable and only the default model can run.
 
-## Command Format
+### The 8-Step Workflow
 
-```
-/swarm [task description]
-```
+#### Step 1: Confirm the Task
 
-If no task description is provided, ask the user what to do before selecting models.
+Restate the task in one sentence (strip the `/fleet` prefix) and ask:
 
-If the user types a task WITHOUT `/swarm` but Swarm Mode is active, treat it as if they typed `/swarm [their message]` and follow the full interactive flow.
-
-## Core Principles
-
-1. **No persistent role mapping** — Model capabilities and your workflow change every month, so roles are chosen **per task**.
-2. **Interactive by design** — Every `/swarm` starts with questions: what task, which models, what role for each.
-3. **Model-agnostic execution** — Subagents call their assigned model through Bash/API; Kimi Code's AgentSwarm is only the orchestrator.
-4. **Structured output** — Every subagent returns the same sections so the parent can synthesize cleanly.
-
-## Workflow
-
-### Step 1: Confirm the Task
-
-Restate the task in one sentence and ask:
-
-> "I'll set up a multi-model swarm for: [task]. Do you want to proceed with multi-model collaboration, or should I just use the default model?"
+> "我要为以下任务启动多模型协作：[task]。是否继续？"
 
 Use `AskUserQuestion` with a single yes/no-style question (or continue with default).
 
-### Step 2: Read ALL Available Models
+#### Step 2: Read ALL Available Models
 
 Read `~/.kimi-code/config.toml` and parse **every** `[models."..."]` entry — do NOT filter. For each model, capture:
 
@@ -89,7 +114,7 @@ Since `AskUserQuestion` allows at most 4 options per question and the user may h
 
 3. **If the user selects "Other"**, let them type a custom model_id manually.
 
-### Step 3: Let the User Pick Models
+#### Step 3: Let the User Pick Models
 
 Use `AskUserQuestion` with `multi_select` to let the user choose 1–N models from the batched lists. Show `display_name (provider)` as labels, with `model_id` and `capabilities` in the description.
 
@@ -102,7 +127,7 @@ If the user wants more models than shown in one batch, repeat the question with 
 4. User multi-selects e.g. `ollama-cloud/glm-5.2` + `kimi-code/kimi-for-coding`
 5. If user wants more, show next batch
 
-### Step 4: Assign Roles AND Custom Instructions Per Model
+#### Step 4: Assign Roles AND Custom Instructions Per Model
 
 For each selected model, ask the user TWO things in one `AskUserQuestion` call:
 
@@ -133,7 +158,7 @@ Options:
 - "Be concise / save tokens" — for cheaper models
 - The user can also select "Other" and type their own custom instruction.
 
-### Step 5: Ask About Concurrency Limits (Optional but Important)
+#### Step 5: Ask About Concurrency Limits (Optional but Important)
 
 Some providers (especially Ollama Cloud) have concurrent request limits tied to the subscription tier. If the user selects more models from one provider than the provider allows simultaneously, only a subset will actually run while the rest queue — wasting time.
 
@@ -163,7 +188,7 @@ deepseek → 5  (or unlimited)
 kimi-code → unlimited
 ```
 
-### Step 6: Build AgentSwarm Items (with batching if needed)
+#### Step 6: Build AgentSwarm Items (with batching if needed)
 
 Create one item per selected model in this format:
 
@@ -197,7 +222,7 @@ Example items:
 "ollama-cloud/minimax-m3|review|Critically review the frontend and backend proposals|Review the login page design"
 ```
 
-### Step 7: Run AgentSwarm
+#### Step 7: Run AgentSwarm
 
 Call `AgentSwarm` with:
 
@@ -206,7 +231,7 @@ Call `AgentSwarm` with:
 - `prompt_template`: the template below
 - `items`: the array built in Step 6 (or the current batch if batching)
 
-### Step 8: Synthesize
+#### Step 8: Synthesize
 
 After all subagents return, produce a final response that:
 
@@ -248,7 +273,7 @@ Use these as the default `custom_instruction_or_default` part of each item.
 Pass this as `prompt_template`:
 
 ````markdown
-You are a subagent in a multi-model swarm. Your specific assignment is encoded in `{{item}}`.
+You are a subagent in a multi-model fleet. Your specific assignment is encoded in `{{item}}`.
 
 Parse `{{item}}` using the format:
 ```
@@ -374,7 +399,7 @@ Return only the structured report. Do not include extra chatter.
 
 ## Pre-Flight Model Check
 
-Before launching the swarm, do a quick availability check for any model that is not the current default model:
+Before launching the fleet, do a quick availability check for any model that is not the current default model:
 
 1. If `model_id` starts with `ollama-cloud/`, run:
    ```bash
@@ -385,10 +410,10 @@ Before launching the swarm, do a quick availability check for any model that is 
 
 ## Parent Synthesis Format
 
-After the swarm finishes, respond like this:
+After the fleet finishes, respond like this:
 
 ```markdown
-# Swarm Results: [Task Title]
+# Fleet Results: [Task Title]
 
 ## Models & Roles
 
@@ -424,3 +449,4 @@ After the swarm finishes, respond like this:
 - Keep the number of selected models reasonable (2–5 is typical; more causes coordination overhead).
 - Always warn the user if selected models are known to be expensive or slow.
 - If the user says "just do it" or rushes past model selection, fall back to a sensible default: one strong model for reasoning, one cheap model for review.
+- `/fleet` is for deliberate multi-model orchestration. For quick parallel tasks, use `/swarm` instead.

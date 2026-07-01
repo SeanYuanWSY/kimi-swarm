@@ -3,8 +3,10 @@
 ## Task
 
 ```markdown
-/swarm 设计一个登录页面，前端模型负责UI组件和样式，后端模型负责API和数据库设计，审查模型负责检查安全和性能问题
+/fleet 设计一个登录页面，前端模型负责UI组件和样式，后端模型负责API和数据库设计，审查模型负责检查安全和性能问题
 ```
+
+> **Dual-mode note:** Use `/fleet` when you want to pick specific models and assign roles interactively. Use `/swarm` if you just want the agent to auto-split the task without model selection.
 
 ## Interactive Flow
 
@@ -38,7 +40,7 @@ Agent: minimax-m3 担任什么角色？
 User:  review（审查）
 ```
 
-### Step 5: Swarm launched
+### Step 5: Fleet launched
 
 Three subagents run in parallel:
 - **glm-5.2** (frontend) → outputs HTML/CSS for the login page

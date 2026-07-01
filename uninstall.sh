@@ -3,8 +3,8 @@
 # Copyright (c) 2025 SeanYuanWSY
 set -euo pipefail
 
-# kimi-swarm uninstaller
-# https://github.com/SeanYuanWSY/kimi-swarm
+# kimifleet uninstaller
+# https://github.com/SeanYuanWSY/kimifleet
 
 KIMI_DIR="$HOME/.kimi-code"
 AGENTS_DIR="$HOME/.agents/skills"
@@ -20,7 +20,7 @@ info()  { echo -e "${GREEN}[✓]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
 error() { echo -e "${RED}[✗]${NC} $*"; }
 
-echo "=== kimi-swarm uninstaller ==="
+echo "=== kimifleet uninstaller ==="
 echo ""
 
 # Check python3 dependency
@@ -30,7 +30,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 # Step 1: Remove symlink
-SYMLINK="$KIMI_DIR/skills-curated/kimi-swarm"
+SYMLINK="$KIMI_DIR/skills-curated/kimifleet"
 if [ -L "$SYMLINK" ]; then
   rm "$SYMLINK"
   info "Removed symlink: $SYMLINK"
@@ -43,7 +43,7 @@ else
 fi
 
 # Step 2: Remove skill directory
-SKILL_DIR="$AGENTS_DIR/kimi-swarm"
+SKILL_DIR="$AGENTS_DIR/kimifleet"
 if [ -L "$SKILL_DIR" ]; then
   # It is a symlink; remove only the link, not the target
   rm "$SKILL_DIR"
@@ -59,7 +59,7 @@ else
 fi
 
 # Step 3: Remove hook script
-HOOK="$KIMI_DIR/scripts/swarm-hook.js"
+HOOK="$KIMI_DIR/scripts/fleet-hook.js"
 if [ -f "$HOOK" ]; then
   rm "$HOOK"
   info "Removed hook script: $HOOK"
@@ -69,9 +69,9 @@ fi
 
 # Step 4: Remove hook registration from config.toml
 if [ -f "$CONFIG" ]; then
-  if grep -qF "# kimi-swarm-hook" "$CONFIG" 2>/dev/null; then
+  if grep -qF "# kimifleet-hook" "$CONFIG" 2>/dev/null; then
     # Backup config before mutation
-    BACKUP="$CONFIG.kimi-swarm.bak.$(date +%s)"
+    BACKUP="$CONFIG.kimifleet.bak.$(date +%s)"
     cp "$CONFIG" "$BACKUP"
     info "Backed up config.toml → $BACKUP"
 
@@ -85,9 +85,9 @@ with open(config_path, 'r') as f:
     lines = f.readlines()
 
 # Match the marker comment line that install.sh writes
-marker_re = re.compile(r'^#\s*kimi-swarm-hook\s*$', re.IGNORECASE)
+marker_re = re.compile(r'^#\s*kimifleet-hook\s*$', re.IGNORECASE)
 hook_start = re.compile(r'^\[\[hooks\]\]\s*(?:#.*)?$')
-command_re = re.compile(r'^\s*command\s*=\s*["\'].*swarm-hook\.js.*["\']\s*$')
+command_re = re.compile(r'^\s*command\s*=\s*["\'].*fleet-hook\.js.*["\']\s*$')
 
 out, buf = [], []
 in_hook = False
@@ -97,7 +97,7 @@ skip_marker = False
 for line in lines:
     stripped = line.strip()
     if marker_re.match(stripped):
-        # Skip the marker line; it belongs to the kimi-swarm hook block
+        # Skip the marker line; it belongs to the kimifleet hook block
         skip_marker = True
         continue
     if skip_marker and hook_start.match(stripped):
@@ -143,6 +143,6 @@ fi
 echo ""
 echo "=== Uninstall complete! ==="
 echo ""
-echo "kimi-swarm has been fully removed."
+echo "kimifleet has been fully removed."
 echo "Start a new Kimi Code session to confirm."
 echo ""

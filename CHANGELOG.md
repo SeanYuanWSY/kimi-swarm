@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2025-07-01
+
+### Changed
+- Renamed project from `kimi-swarm` to `kimifleet`.
+- Renamed hook script from `swarm-hook.js` to `fleet-hook.js`.
+- New dual-mode design: `/swarm` passes through to native Kimi Swarm Mode (not intercepted); `/fleet` triggers the full 8-step interactive multi-model configuration flow.
+- Renamed command from `/swarm-config` to `/fleet`.
+- Updated all paths, symlinks, markers, and backup suffixes.
+
+### Added
+- `/swarm` native mode — zero-config, auto task-split, no model selection.
+- `/fleet` interactive mode — full provider/model/role/concurrency configuration.
+
 ## [0.1.2] - 2025-06-30
 
 ### Fixed
