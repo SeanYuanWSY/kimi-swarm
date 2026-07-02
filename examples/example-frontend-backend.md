@@ -25,29 +25,54 @@ User:  ollama-cloud + deepseek
 ### Step 3: Select models
 ```
 Agent: 从 ollama-cloud 和 deepseek 中选择模型：
-User:  ollama-cloud/glm-5.2 + deepseek/deepseek-v4-pro + ollama-cloud/minimax-m3
+       (GLM-5.2 (ollama-cloud) / DeepSeek-V4-Pro (deepseek) / MiniMax-M3 (ollama-cloud) / ...)
+User:  GLM-5.2 + DeepSeek-V4-Pro + MiniMax-M3
 ```
 
-### Step 4: Assign roles
+### Step 4: Assign roles + custom instructions
 ```
-Agent: glm-5.2 担任什么角色？
-User:  frontend（前端）
+Agent: GLM-5.2 (ollama-cloud) 担任什么角色？有什么自定义指令？
+User:  角色：frontend。指令：专注组件结构和 Tailwind 样式
 
-Agent: deepseek-v4-pro 担任什么角色？
-User:  backend（后端）
+Agent: DeepSeek-V4-Pro (deepseek) 担任什么角色？有什么自定义指令？
+User:  角色：backend。指令：用默认
 
-Agent: minimax-m3 担任什么角色？
-User:  review（审查）
+Agent: MiniMax-M3 (ollama-cloud) 担任什么角色？有什么自定义指令？
+User:  角色：review。指令：重点检查 JWT 安全和性能瓶颈
 ```
 
-### Step 5: Fleet launched
+### Step 5: Concurrency limits
+```
+Agent: 是否需要为某些 provider 设置最大并发数？
+       (Ollama Cloud 订阅可能限制并发数)
+User:  ollama-cloud 设为 2，deepseek 不限制
+```
 
-Three subagents run in parallel:
-- **glm-5.2** (frontend) → outputs HTML/CSS for the login page
-- **deepseek-v4-pro** (backend) → outputs API endpoints + DB schema
-- **minimax-m3** (review) → reviews both outputs for security and performance
+### Step 6: Build items
+```
+Items:
+  ollama-cloud/glm-5.2|frontend|Focus on component structure and Tailwind styling|设计一个登录页面的前端
+  deepseek/deepseek-v4-pro|backend|Use default for this role|设计一个登录页面的后端 API 和数据库
+  ollama-cloud/minimax-m3|review|Focus on JWT security and performance bottlenecks|审查登录页面设计的安全和性能
+```
 
-### Step 6: Synthesized output
+### Step 7: Run AgentSwarm
+```
+AgentSwarm(
+  description: "login-page-design",
+  subagent_type: "coder",
+  prompt_template: <SKILL.md template>,
+  items: [3 items above],
+  concurrency: {ollama-cloud: 2}
+)
+```
+
+Three subagents run (batched: 2 ollama-cloud + 1 deepseek in wave 1):
+- **GLM-5.2** (frontend) → outputs HTML/CSS for the login page
+- **DeepSeek-V4-Pro** (backend) → outputs API endpoints + DB schema
+- **MiniMax-M3** (review) → reviews both outputs for security and performance
+
+### Step 8: Synthesize
 
 The parent agent combines all three into a final design document with:
 - Frontend code

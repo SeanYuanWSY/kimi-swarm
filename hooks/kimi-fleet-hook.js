@@ -105,6 +105,7 @@ print(json.dumps({"providers": provider_names, "models_by_provider": by_provider
     const result = execSync(`python3 -c '${pyScript.replace(/'/g, "'\\''")}'`, {
       encoding: "utf8",
       timeout: 5000,
+      maxBuffer: 10 * 1024 * 1024, // 10MB — default 1MB is too small for large configs
     });
     return JSON.parse(result);
   } catch {

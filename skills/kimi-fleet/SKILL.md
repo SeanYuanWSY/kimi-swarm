@@ -264,6 +264,8 @@ Create one item per selected model in this format:
 "{model_id}|{role}|{custom_instruction_or_default}|{task_description}"
 ```
 
+**The third field (`custom_instruction_or_default`) must contain the full system prompt text, not just the role name.** If the user chose "使用角色默认指令", copy the corresponding text from the [Role System Prompts](#role-system-prompts) section below (e.g. the `frontend` default prompt). If the user provided a custom instruction, use that text verbatim. The subagent receives this field as-is and cannot look up role names by itself.
+
 **If no concurrency limits were set**, pass all items to AgentSwarm at once.
 
 **If concurrency limits were set**, split items into batches:
