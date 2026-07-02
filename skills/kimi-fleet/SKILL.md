@@ -75,6 +75,17 @@ Even if the user's prompt already specifies roles like "前端模型负责X, 后
 
 **Hard rule**: Before calling `AskUserQuestion` for model selection, count the total models `N` in the selected provider(s). You need `ceil(N / 16)` calls. Make ALL of them. See **Step 2 → The batching algorithm** for the exact procedure. If you catch yourself showing only the first 4 models and moving on, STOP — you are skipping the rest of the list.
 
+### CRITICAL: Never Show "Ghost Models" — Only Use the Injected List
+
+The #2 fleet bug is the agent showing models that do NOT exist in the user's config — "ghost models" from memory, training data, or previous sessions. For example, the user's config may have been cleaned to keep only 2 `tohoqing-gemini` models, but the agent "remembers" 6 and shows all 6.
+
+**Hard rules**:
+1. If the hook injected a `COMPLETE Model List`, that list is the **ONLY** source of truth. You may ONLY show those exact models — nothing else.
+2. **NEVER add models from memory, training data, previous sessions, backups, or guesswork.** If a model is not in the injected list, it does NOT exist and must NOT be offered.
+3. The count in parentheses (e.g. `2 models`) is **EXACT**. If `tohoqing-gemini` says "2 models", you show exactly 2 — not 3, not 6, not 7.
+4. Do NOT "supplement" or "fill in" models you think might exist. The config has been curated and cleaned — removed models are intentionally absent.
+5. **Before each `AskUserQuestion` call, verify every `model_id` you are about to present exists in the injected list. If it does not, REMOVE it. Also verify the count matches the number in the list — if the count doesn't match, you made an error — re-check.**
+
 ### When to Use
 
 - The task can be split into parallel perspectives (frontend, backend, review, research, cheap-task, etc.).
@@ -100,9 +111,11 @@ Use `AskUserQuestion` with a single yes/no-style question (or continue with defa
 
 #### Step 2: Get ALL Available Models
 
-> ⚠️ **TOP BUG — READ THIS TWICE**: The #1 reported bug in `/fleet` is the agent showing only 4 models (or only the first batch) and stopping, as if `AskUserQuestion` could only hold 4 options total. **`AskUserQuestion` supports UP TO 4 QUESTIONS per call, and EACH question has 4 options — that is 16 models per single call.** When there are more than 16 models, you make MULTIPLE `AskUserQuestion` calls. Never truncate the model list. Never stop after one batch. The user must see EVERY model in every selected provider before picking.
+> ⚠️ **TOP BUG #1 — TRUNCATION**: The #1 reported bug in `/fleet` is the agent showing only 4 models (or only the first batch) and stopping, as if `AskUserQuestion` could only hold 4 options total. **`AskUserQuestion` supports UP TO 4 QUESTIONS per call, and EACH question has 4 options — that is 16 models per single call.** When there are more than 16 models, you make MULTIPLE `AskUserQuestion` calls. Never truncate the model list. Never stop after one batch. The user must see EVERY model in every selected provider before picking.
 
-**If the hook injected a COMPLETE model list** (you will see a section titled `COMPLETE Model List (injected by hook)`), use that list directly — do NOT re-read `config.toml`.
+> ⚠️ **TOP BUG #2 — GHOST MODELS**: The #2 reported bug is the agent showing models that do NOT exist in the user's config — "ghost models" from memory, training data, or previous sessions. For example, the user cleaned their config to keep only 2 `tohoqing-gemini` models, but the agent "remembers" 6 and shows all 6. **The injected model list is the ONLY source of truth. NEVER add models from memory. If a model is not in the injected list, it does NOT exist.**
+
+**If the hook injected a COMPLETE model list** (you will see a section titled `COMPLETE Model List (injected by hook)`), use that list directly — do NOT re-read `config.toml`. The list includes strict integrity rules and exact per-provider counts — follow them.
 
 **If the hook did NOT inject a model list** (fallback), read `~/.kimi-code/config.toml` and parse **every** `[models."..."]` entry yourself — do NOT filter. For each model, capture:
 
@@ -112,6 +125,8 @@ Use `AskUserQuestion` with a single yes/no-style question (or continue with defa
 - `capabilities` (especially `tool_use`, `image_in`, `thinking`)
 
 **List ALL models**, including those without `tool_use`. The user may want to use a vision-only or thinking-only model for a specific role. Do not pre-filter.
+
+**Do NOT add any model that is not in the injected list or config.toml.** The config has been curated — removed models are intentionally absent. Do NOT "supplement" or "fill in" models from memory.
 
 ##### The batching algorithm (follow this EXACTLY)
 
@@ -126,7 +141,7 @@ Multi-stage flow:
    - Use `AskUserQuestion` with `multi_select=true`, **one option per provider** (NOT per "group" — never combine multiple providers into one option like "Claude系" or "DeepSeek系"). Every single provider from the config gets its own option.
    - The user CAN select multiple providers at once (e.g. both `ollama-cloud` and `managed:kimi-code`).
    - Use the providers from the injected model list (or from your config.toml parse). **Do NOT hardcode provider names** — the list is dynamically generated from the user's actual config.
-   - **⚠️ TOP BUG #2 — MISSING PROVIDERS**: Just like truncating the model list is the #1 bug, **silently omitting providers** is the #2 bug. If the config has 8 providers, ALL 8 must appear as options — do not group them, do not filter out "uninteresting" ones, do not skip `managed:kimi-code` or providers without many models. The user decides which to browse; you do not pre-filter.
+   - **⚠️ TOP BUG #3 — MISSING PROVIDERS**: Just like truncating the model list is the #1 bug, **silently omitting providers** is the #3 bug. If the config has 8 providers, ALL 8 must appear as options — do not group them, do not filter out "uninteresting" ones, do not skip `managed:kimi-code` or providers without many models. The user decides which to browse; you do not pre-filter.
    - If there are **5+ providers**, one question (4 slots) is not enough. Split into two questions in the same call: question 1 = providers 1-4, question 2 = providers 5-N. Both questions use `multi_select=true`.
    - **Concrete example — 8 providers**: `question 1` has 4 options (provider1, provider2, provider3, provider4), `question 2` has 4 options (provider5, provider6, provider7, provider8). Both questions appear in the same `AskUserQuestion` call, both with `multi_select=true`.
 
@@ -196,6 +211,8 @@ Options (the system will auto-add "Other" for custom input):
 | `synthesize` | Combine outputs from other agents into a final answer | Coherent integration |
 
 Since `AskUserQuestion` allows max 4 options per question, split the 6 roles + "Other" into two questions of 4 options each, OR pick the 4 most relevant roles for the current task and let "Other" cover the rest.
+
+**⚠️ DISAMBIGUATION WARNING**: Different providers can offer models with the identical `display_name` (e.g. `ollama-cloud/glm-5.2` and `zai-coding-plan/glm-5.2` both display as "GLM-5.2"). If the hook flagged a `display_name` as a duplicate (see the `DUPLICATE DISPLAY NAMES DETECTED` note in the injected model list), or if you notice two selected models share a display_name, **always phrase the question as "display_name (provider)"** — e.g. "这个模型 GLM-5.2 (ollama-cloud) 担任什么角色？" — never use the bare display_name alone, or the user cannot tell which model the question refers to.
 
 **Question 2 (optional): Any specific instructions for this model?**
 

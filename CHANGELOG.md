@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-07-02
+
+### Fixed
+- **Critical (Bug #2 — Ghost Models)**: The #2 fleet bug was the agent showing models that do NOT exist in the user's config — "ghost models" from memory, training data, or previous sessions. After cleaning config to keep only 2 `tohoqing-gemini` models, the agent would "remember" 6 and present all 6. Added `STRICT CONSTRAINT` header, per-provider `EXACT count` labels, `TOTAL` model count, `END OF MODEL LIST` marker, and 5 `MODEL LIST INTEGRITY RULES` requiring per-`model_id` verification before every `AskUserQuestion` call. SKILL.md gains a "Never Show Ghost Models" section with matching hard rules.
+- **High (TOP BUG #3 sync)**: The provider omission fix from v0.5.1 only updated SKILL.md's Step 2 wording — the hook's runtime-injected Step 2 instruction never got the same warning. Added the same `TOP BUG #3` warning block to `buildFleetInstruction()`'s Step 2. Renumbered `MISSING PROVIDERS` from #2 to #3 to resolve duplicate numbering conflict with `GHOST MODELS`.
+- **Medium (Orphan provider count)**: `formatModelList()`'s "Available Providers" header only counted providers from the `[providers.*]` table, silently excluding orphan providers (a model whose `provider` field has no matching `[providers.x]` entry). Orphans are now folded into the same provider list and tagged `[not in [providers.*] table, but has models — still show it]`.
+- **Medium (display_name collisions)**: Different providers can offer models with the identical `display_name` (e.g. `ollama-cloud/glm-5.2` and `zai-coding-plan/glm-5.2` both display as "GLM-5.2"), making Step 4's role question ambiguous. `formatModelList()` now detects duplicate `display_name`s, tags each occurrence inline with `⚠️ DUPLICATE`, and appends an explicit `DUPLICATE DISPLAY NAMES DETECTED` notice. SKILL.md Step 4 updated with a `DISAMBIGUATION WARNING` requiring `"display_name (provider)"` format.
+- **Medium (Case-sensitive slash guard)**: `shouldIntercept()` used `startsWith("/swarm")` which is case-sensitive. `/SWARM` or `/Fleet` would bypass the guard and get hijacked into fleet flow if the prompt also contained multi-role patterns. Replaced with case-insensitive regex `/^\s*\/(swarm|fleet)\b/iu`.
+- **Medium (English regex false-positive)**: `engRoles` matched `\b(review|research)\s+model(s)?\b`, causing ordinary prompts like "review model performance" or "research model architecture" to trigger the full interactive fleet flow. Removed `review|research` from English patterns (they remain in CJK patterns as `审查模型`/`研究模型` which are unambiguous). `frontend`/`backend`/`cheap-task` retained as fleet-specific role names with negligible false-positive rates.
+- **Low (Step count mismatch)**: Hook injected 7 steps vs SKILL.md's 8 steps. Hook's Step 6 merged "Build items" + "Run AgentSwarm" and omitted `subagent_type`/`prompt_template` guidance. Split into Step 6 (Build items) + Step 7 (Run AgentSwarm with full call parameters) + Step 8 (Synthesize), matching SKILL.md's 8-step structure.
+
+### Verified
+- 13 regression scenarios all pass: multi-role CJK prompt intercepted, plain prompt passed through, `/swarm`/`/fleet`/`/SWARM`/`/Fleet` all pass through, "review model performance" no longer triggers, `frontend`/`backend`/`cheap-task` still trigger, CJK `审查模型`/`研究模型` unaffected, ghost model prevention confirmed, DUPLICATE display_name flagging confirmed, step count is 8.
+- Deployment consistency: local hook and git repo version MD5-identical, `config.toml` hook registration path correct.
+
 ## [0.5.1] - 2026-07-02
 
 ### Fixed
